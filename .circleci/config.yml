@@ -40,13 +40,17 @@ jobs:
       - run:
           name: "Configure AWS credentials"
           command: |
-            mkdir -p ~/.aws
-            echo "[default]" > ~/.aws/credentials
-            echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
-            echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
-            echo "[default]" > ~/.aws/config
-            echo "region = ap-northeast-1" >> ~/.aws/config
-            echo "output = json" >> ~/.aws/config
+            # Set AWS credentials as environment variables (preferred method)
+            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+            export AWS_DEFAULT_REGION=ap-northeast-1
+            
+            # Verify credentials are working
+            echo "Verifying AWS credentials..."
+            aws sts get-caller-identity || {
+              echo "AWS credentials verification failed. Please check your AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
+              exit 1
+            }
       
       # Create deployment package
       - run:
@@ -61,49 +65,48 @@ jobs:
       - run:
           name: "Deploy Lambda function with URL"
           command: |
-            # Explicitly set AWS region for this session
+            # Ensure AWS credentials are set for this step
+            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
             export AWS_DEFAULT_REGION=ap-northeast-1
             
             # Verify AWS configuration
             echo "Using AWS Region: ap-northeast-1"
             aws configure list
             
-            # Check if Lambda function exists
-            if aws lambda get-function --function-name LambdaURL --region ap-northeast-1 2>&1 | grep -q "Function not found"; then
-              # Create new Lambda function with URL
-              echo "Creating new Lambda function with URL..."
-              aws lambda create-function \
-                --region ap-northeast-1 \
-                --function-name LambdaURL \
-                --runtime nodejs18.x \
-                --handler index.handler \
-                --zip-file fileb://deploy/lambda_function.zip \
-                --role $AWS_LAMBDA_ROLE_ARN
-              
-              # Create function URL
-              aws lambda create-function-url-config \
-                --region ap-northeast-1 \
-                --function-name LambdaURL \
-                --auth-type NONE
-            else
-              # Update existing Lambda function
-              echo "Updating existing Lambda function..."
-              aws lambda update-function-code \
-                --region ap-northeast-1 \
-                --function-name LambdaURL \
-                --zip-file fileb://deploy/lambda_function.zip
-              
-              # Check if URL config exists, create if not
-              if ! aws lambda get-function-url-config --region ap-northeast-1 --function-name LambdaURL 2>/dev/null; then
-                aws lambda create-function-url-config \
+            # Create or update Lambda function using AWS SAM
+            echo "Deploying Lambda function with URL..."
+            
+            # First, try to create the function (will fail if it already exists)
+            echo "Attempting to create new Lambda function..."
+            aws lambda create-function \
+              --region ap-northeast-1 \
+              --function-name LambdaURL \
+              --runtime nodejs18.x \
+              --handler index.handler \
+              --zip-file fileb://deploy/lambda_function.zip \
+              --role $AWS_LAMBDA_ROLE_ARN || {
+                
+                # If creation fails, try to update the function
+                echo "Function may already exist, attempting to update..."
+                aws lambda update-function-code \
                   --region ap-northeast-1 \
                   --function-name LambdaURL \
-                  --auth-type NONE
-              fi
-            fi
+                  --zip-file fileb://deploy/lambda_function.zip
+            }
+            
+            # Create function URL (will fail silently if it already exists)
+            echo "Configuring function URL..."
+            aws lambda create-function-url-config \
+              --region ap-northeast-1 \
+              --function-name LambdaURL \
+              --auth-type NONE || true
             
             # Get and display the Lambda URL
-            aws lambda get-function-url-config --region ap-northeast-1 --function-name LambdaURL
+            echo "Retrieving function URL..."
+            aws lambda get-function-url-config \
+              --region ap-northeast-1 \
+              --function-name LambdaURL || echo "Could not retrieve function URL. Please check the function in the AWS console."
 
 # Orchestrate jobs using workflows
 # See: https://circleci.com/docs/workflows/ & https://circleci.com/docs/configuration-reference/#workflows
