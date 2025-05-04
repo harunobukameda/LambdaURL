@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lambda function with URL endpoint
+
+Resources:
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: LambdaURL
+      CodeUri: ./
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Events:
+        HttpApi:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: GET
+      FunctionUrlConfig:
+        AuthType: NONE
+
+Outputs:
+  LambdaFunctionUrl:
+    Description: "Lambda Function URL"
+    Value: !GetAtt LambdaFunction.FunctionUrl
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"

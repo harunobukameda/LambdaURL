@@ -5,27 +5,99 @@ version: 2.1
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/jobs-steps/#jobs-overview & https://circleci.com/docs/configuration-reference/#jobs
 jobs:
-  say-hello:
-    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/executor-intro/ & https://circleci.com/docs/configuration-reference/#executor-job
+  deploy-lambda:
+    # Use an AWS-compatible Docker image
     docker:
-      # Specify the version you desire here
-      # See: https://circleci.com/developer/images/image/cimg/base
-      - image: cimg/base:current
+      - image: cimg/python:3.9-node
 
     # Add steps to the job
-    # See: https://circleci.com/docs/jobs-steps/#steps-overview & https://circleci.com/docs/configuration-reference/#steps
     steps:
       # Checkout the code as the first step.
       - checkout
+      
+      # Set up Node.js environment
       - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+          name: "Set up Node.js environment"
+          command: |
+            npm install
+      
+      # Run linting and tests
+      - run:
+          name: "Run linting and tests"
+          command: |
+            npm run lint || echo "Linting issues found, but continuing deployment"
+            npm test
+      
+      # Install AWS CLI
+      - run:
+          name: "Install AWS CLI"
+          command: |
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+      
+      # Configure AWS credentials
+      - run:
+          name: "Configure AWS credentials"
+          command: |
+            aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+            aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+            aws configure set default.region $AWS_REGION
+      
+      # Create deployment package
+      - run:
+          name: "Create deployment package"
+          command: |
+            mkdir -p deploy
+            cp index.mjs deploy/
+            cd deploy
+            zip -r lambda_function.zip .
+      
+      # Deploy Lambda function with URL
+      - run:
+          name: "Deploy Lambda function with URL"
+          command: |
+            # Check if Lambda function exists
+            if aws lambda get-function --function-name LambdaURL 2>&1 | grep -q "Function not found"; then
+              # Create new Lambda function with URL
+              echo "Creating new Lambda function with URL..."
+              aws lambda create-function \
+                --function-name LambdaURL \
+                --runtime nodejs18.x \
+                --handler index.handler \
+                --zip-file fileb://deploy/lambda_function.zip \
+                --role $AWS_LAMBDA_ROLE_ARN
+              
+              # Create function URL
+              aws lambda create-function-url-config \
+                --function-name LambdaURL \
+                --auth-type NONE
+            else
+              # Update existing Lambda function
+              echo "Updating existing Lambda function..."
+              aws lambda update-function-code \
+                --function-name LambdaURL \
+                --zip-file fileb://deploy/lambda_function.zip
+              
+              # Check if URL config exists, create if not
+              if ! aws lambda get-function-url-config --function-name LambdaURL 2>/dev/null; then
+                aws lambda create-function-url-config \
+                  --function-name LambdaURL \
+                  --auth-type NONE
+              fi
+            fi
+            
+            # Get and display the Lambda URL
+            aws lambda get-function-url-config --function-name LambdaURL
 
 # Orchestrate jobs using workflows
 # See: https://circleci.com/docs/workflows/ & https://circleci.com/docs/configuration-reference/#workflows
 workflows:
-  say-hello-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
+  deploy-lambda-workflow:
     # Inside the workflow, you define the jobs you want to run.
     jobs:
-      - say-hello
+      - deploy-lambda:
+          # Only run on main branch
+          filters:
+            branches:
+              only: main

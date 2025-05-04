@@ -1,0 +1,28 @@
+{
+  "name": "lambda-url",
+  "version": "1.0.0",
+  "description": "AWS Lambda function with URL endpoint deployed via CircleCI",
+  "main": "index.mjs",
+  "type": "module",
+  "scripts": {
+    "test": "node test-local.js",
+    "start": "sam local start-api",
+    "deploy": "sam deploy --guided",
+    "lint": "eslint *.mjs",
+    "local-test": "node test-local.js"
+  },
+  "keywords": [
+    "aws",
+    "lambda",
+    "serverless",
+    "circleci"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.38.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
