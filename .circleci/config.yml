@@ -61,11 +61,19 @@ jobs:
       - run:
           name: "Deploy Lambda function with URL"
           command: |
+            # Explicitly set AWS region for this session
+            export AWS_DEFAULT_REGION=$AWS_REGION
+            
+            # Verify AWS configuration
+            echo "Using AWS Region: $AWS_REGION"
+            aws configure list
+            
             # Check if Lambda function exists
-            if aws lambda get-function --function-name LambdaURL 2>&1 | grep -q "Function not found"; then
+            if aws lambda get-function --function-name LambdaURL --region $AWS_REGION 2>&1 | grep -q "Function not found"; then
               # Create new Lambda function with URL
               echo "Creating new Lambda function with URL..."
               aws lambda create-function \
+                --region $AWS_REGION \
                 --function-name LambdaURL \
                 --runtime nodejs18.x \
                 --handler index.handler \
@@ -74,25 +82,28 @@ jobs:
               
               # Create function URL
               aws lambda create-function-url-config \
+                --region $AWS_REGION \
                 --function-name LambdaURL \
                 --auth-type NONE
             else
               # Update existing Lambda function
               echo "Updating existing Lambda function..."
               aws lambda update-function-code \
+                --region $AWS_REGION \
                 --function-name LambdaURL \
                 --zip-file fileb://deploy/lambda_function.zip
               
               # Check if URL config exists, create if not
-              if ! aws lambda get-function-url-config --function-name LambdaURL 2>/dev/null; then
+              if ! aws lambda get-function-url-config --region $AWS_REGION --function-name LambdaURL 2>/dev/null; then
                 aws lambda create-function-url-config \
+                  --region $AWS_REGION \
                   --function-name LambdaURL \
                   --auth-type NONE
               fi
             fi
             
             # Get and display the Lambda URL
-            aws lambda get-function-url-config --function-name LambdaURL
+            aws lambda get-function-url-config --region $AWS_REGION --function-name LambdaURL
 
 # Orchestrate jobs using workflows
 # See: https://circleci.com/docs/workflows/ & https://circleci.com/docs/configuration-reference/#workflows
