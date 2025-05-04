@@ -24,8 +24,9 @@ You need to set up the following environment variables in your CircleCI project 
 
 - `AWS_ACCESS_KEY_ID` - Your AWS access key ID
 - `AWS_SECRET_ACCESS_KEY` - Your AWS secret access key
-- `AWS_REGION` - The AWS region to deploy to (e.g., `us-east-1`)
 - `AWS_LAMBDA_ROLE_ARN` - The ARN of the IAM role for the Lambda function
+
+Note: The AWS region is hardcoded to `ap-northeast-1` (Tokyo) in the configuration.
 
 ## IAM Role Requirements
 

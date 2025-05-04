@@ -27,4 +27,4 @@ Outputs:
     Value: !GetAtt LambdaFunction.FunctionUrl
   ApiEndpoint:
     Description: "API Gateway endpoint URL"
-    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.ap-northeast-1.amazonaws.com/"
