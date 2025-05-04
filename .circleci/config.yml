@@ -115,6 +115,9 @@ workflows:
     # Inside the workflow, you define the jobs you want to run.
     jobs:
       - deploy-lambda:
+          # Use the aws-credentials context to access AWS credentials
+          context:
+            - aws-credentials
           # Only run on main branch
           filters:
             branches:

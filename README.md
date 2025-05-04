@@ -18,15 +18,22 @@ The CircleCI configuration automatically deploys the Lambda function with a func
    - If it exists, updates the function code and ensures a function URL is configured
 4. Displays the function URL in the CircleCI job output
 
-## Required Environment Variables
+## Required Environment Variables and Context
 
-You need to set up the following environment variables in your CircleCI project settings:
+You need to set up a CircleCI context named `aws-credentials` with the following environment variables:
 
 - `AWS_ACCESS_KEY_ID` - Your AWS access key ID
 - `AWS_SECRET_ACCESS_KEY` - Your AWS secret access key
 - `AWS_LAMBDA_ROLE_ARN` - The ARN of the IAM role for the Lambda function
 
 Note: The AWS region is hardcoded to `ap-northeast-1` (Tokyo) in the configuration.
+
+### Setting up the CircleCI Context
+
+1. In the CircleCI web interface, go to Organization Settings
+2. Click on "Contexts"
+3. Click "Create Context" and name it `aws-credentials`
+4. Add the environment variables listed above to this context
 
 ## IAM Role Requirements
 
