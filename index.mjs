@@ -18,7 +18,7 @@ export const handler = async (event) => {
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'
     },
-    body: JSON.stringify('Hello from Lambda deployed by CircleCI!')
+    body: JSON.stringify('Hello from Lambda deployed by CircleCI')
   };
   
   return response;
