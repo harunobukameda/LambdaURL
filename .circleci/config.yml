@@ -9,33 +9,37 @@ jobs:
     steps:
       - checkout
 
-      # AWS 認証情報のセットアップ
+      # AWS 認証情報のセットアップ（context 経由）
       - aws-cli/setup
 
-      # Node.js のインストール（v18系）
+      # Node.js を非 root 環境にバイナリでインストール
       - run:
-          name: "Install Node.js 18"
+          name: "Install Node.js 18 (binary)"
           command: |
-            apt-get update
-            apt-get install -y curl gnupg
-            curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-            apt-get install -y nodejs
+            curl -fsSL https://nodejs.org/dist/v18.20.2/node-v18.20.2-linux-x64.tar.xz -o node.tar.xz
+            mkdir -p /tmp/node
+            tar -xf node.tar.xz -C /tmp/node --strip-components=1
+            echo 'export PATH="/tmp/node/bin:$PATH"' >> $BASH_ENV
+            source $BASH_ENV
             node -v
             npm -v
 
       # npm install
       - run:
           name: "Install dependencies"
-          command: npm install
+          command: |
+            source $BASH_ENV
+            npm install
 
       # Lint & Test
       - run:
           name: "Run linting and tests"
           command: |
+            source $BASH_ENV
             npm run lint || echo "Linting issues found, but continuing deployment"
             npm test
 
-      # Lambda デプロイ用 zip パッケージの作成
+      # Lambda zip パッケージ作成
       - run:
           name: "Create deployment package"
           command: |
@@ -44,7 +48,7 @@ jobs:
             cd deploy
             zip -r lambda_function.zip .
 
-      # Lambda 関数の作成 or 更新
+      # Lambda 関数の作成または更新 & URL取得
       - run:
           name: "Deploy Lambda function with URL"
           command: |
