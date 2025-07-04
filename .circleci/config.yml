@@ -10,7 +10,7 @@ jobs:
     steps:
       - checkout
 
-      # Node.js 環境構築（OrbのexecutorではNodeがないため手動でセットアップ）
+      # Node.js 環境構築（Orb executorにNode.jsは含まれていないため自前でインストール）
       - run:
           name: "Install Node.js and npm packages"
           command: |
@@ -25,13 +25,10 @@ jobs:
             npm run lint || echo "Linting issues found, but continuing deployment"
             npm test
 
-      # AWS CLIのセットアップ（orbで済む）
-      - aws-cli/setup:
-          aws-access-key-id: AWS_ACCESS_KEY_ID
-          aws-secret-access-key: AWS_SECRET_ACCESS_KEY
-          aws-region: ap-northeast-1
+      # AWS CLIの認証セットアップ（環境変数を使用）
+      - aws-cli/setup
 
-      # デプロイ用パッケージ作成
+      # デプロイパッケージ作成
       - run:
           name: "Create deployment package"
           command: |
@@ -40,7 +37,7 @@ jobs:
             cd deploy
             zip -r lambda_function.zip .
 
-      # Lambda関数の作成 or 更新
+      # Lambda関数のデプロイ
       - run:
           name: "Deploy Lambda function with URL"
           command: |
