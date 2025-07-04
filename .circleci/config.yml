@@ -1,58 +1,37 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/configuration-reference
 version: 2.1
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/jobs-steps/#jobs-overview & https://circleci.com/docs/configuration-reference/#jobs
+orbs:
+  aws-cli: circleci/aws-cli@4.0.0
+
 jobs:
   deploy-lambda:
-    # Use an AWS-compatible Docker image
-    docker:
-      - image: cimg/python:3.9-node
-
-    # Add steps to the job
+    executor:
+      name: aws-cli/default
     steps:
-      # Checkout the code as the first step.
       - checkout
-      
-      # Set up Node.js environment
+
+      # Node.js 環境構築（OrbのexecutorではNodeがないため手動でセットアップ）
       - run:
-          name: "Set up Node.js environment"
+          name: "Install Node.js and npm packages"
           command: |
+            curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+            apt-get install -y nodejs
             npm install
-      
-      # Run linting and tests
+
+      # Lint & Test
       - run:
           name: "Run linting and tests"
           command: |
             npm run lint || echo "Linting issues found, but continuing deployment"
             npm test
-      
-      # Install AWS CLI
-      - run:
-          name: "Install AWS CLI"
-          command: |
-            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-            unzip awscliv2.zip
-            sudo ./aws/install
-      
-      # Configure AWS credentials
-      - run:
-          name: "Configure AWS credentials"
-          command: |
-            # Set AWS credentials as environment variables (preferred method)
-            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-            export AWS_DEFAULT_REGION=ap-northeast-1
-            
-            # Verify credentials are working
-            echo "Verifying AWS credentials..."
-            aws sts get-caller-identity || {
-              echo "AWS credentials verification failed. Please check your AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
-              exit 1
-            }
-      
-      # Create deployment package
+
+      # AWS CLIのセットアップ（orbで済む）
+      - aws-cli/setup:
+          aws-access-key-id: AWS_ACCESS_KEY_ID
+          aws-secret-access-key: AWS_SECRET_ACCESS_KEY
+          aws-region: ap-northeast-1
+
+      # デプロイ用パッケージ作成
       - run:
           name: "Create deployment package"
           command: |
@@ -60,25 +39,13 @@ jobs:
             cp index.mjs deploy/
             cd deploy
             zip -r lambda_function.zip .
-      
-      # Deploy Lambda function with URL
+
+      # Lambda関数の作成 or 更新
       - run:
           name: "Deploy Lambda function with URL"
           command: |
-            # Ensure AWS credentials are set for this step
-            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-            export AWS_DEFAULT_REGION=ap-northeast-1
-            
-            # Verify AWS configuration
-            echo "Using AWS Region: ap-northeast-1"
-            aws configure list
-            
-            # Create or update Lambda function using AWS SAM
-            echo "Deploying Lambda function with URL..."
-            
-            # First, try to create the function (will fail if it already exists)
-            echo "Attempting to create new Lambda function..."
+            echo "Deploying Lambda function..."
+
             aws lambda create-function \
               --region ap-northeast-1 \
               --function-name LambdaURL \
@@ -86,39 +53,30 @@ jobs:
               --handler index.handler \
               --zip-file fileb://deploy/lambda_function.zip \
               --role $AWS_LAMBDA_ROLE_ARN || {
-                
-                # If creation fails, try to update the function
                 echo "Function may already exist, attempting to update..."
                 aws lambda update-function-code \
                   --region ap-northeast-1 \
                   --function-name LambdaURL \
                   --zip-file fileb://deploy/lambda_function.zip
-            }
-            
-            # Create function URL (will fail silently if it already exists)
-            echo "Configuring function URL..."
+              }
+
+            echo "Creating function URL config..."
             aws lambda create-function-url-config \
               --region ap-northeast-1 \
               --function-name LambdaURL \
               --auth-type NONE || true
-            
-            # Get and display the Lambda URL
-            echo "Retrieving function URL..."
+
+            echo "Retrieving Lambda URL..."
             aws lambda get-function-url-config \
               --region ap-northeast-1 \
-              --function-name LambdaURL || echo "Could not retrieve function URL. Please check the function in the AWS console."
+              --function-name LambdaURL || echo "Could not retrieve function URL."
 
-# Orchestrate jobs using workflows
-# See: https://circleci.com/docs/workflows/ & https://circleci.com/docs/configuration-reference/#workflows
 workflows:
   deploy-lambda-workflow:
-    # Inside the workflow, you define the jobs you want to run.
     jobs:
       - deploy-lambda:
-          # Use the aws-credentials context to access AWS credentials
           context:
             - aws-credentials
-          # Only run on main branch
           filters:
             branches:
               only: main
