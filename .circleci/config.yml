@@ -5,18 +5,28 @@ orbs:
 
 jobs:
   deploy-lambda:
-    executor:
-      name: aws-cli/default
+    executor: aws-cli/default
     steps:
       - checkout
 
-      # Node.js 環境構築（Orb executorにNode.jsは含まれていないため自前でインストール）
+      # AWS 認証情報のセットアップ
+      - aws-cli/setup
+
+      # Node.js のインストール（v18系）
       - run:
-          name: "Install Node.js and npm packages"
+          name: "Install Node.js 18"
           command: |
+            apt-get update
+            apt-get install -y curl gnupg
             curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
             apt-get install -y nodejs
-            npm install
+            node -v
+            npm -v
+
+      # npm install
+      - run:
+          name: "Install dependencies"
+          command: npm install
 
       # Lint & Test
       - run:
@@ -25,10 +35,7 @@ jobs:
             npm run lint || echo "Linting issues found, but continuing deployment"
             npm test
 
-      # AWS CLIの認証セットアップ（環境変数を使用）
-      - aws-cli/setup
-
-      # デプロイパッケージ作成
+      # Lambda デプロイ用 zip パッケージの作成
       - run:
           name: "Create deployment package"
           command: |
@@ -37,7 +44,7 @@ jobs:
             cd deploy
             zip -r lambda_function.zip .
 
-      # Lambda関数のデプロイ
+      # Lambda 関数の作成 or 更新
       - run:
           name: "Deploy Lambda function with URL"
           command: |
