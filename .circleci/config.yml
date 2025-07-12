@@ -9,6 +9,10 @@ parameters:
 # ジョブの定義
 jobs:
   install_node:
+    parameters:
+      node_version:
+        type: string
+        default: "18"
     docker:
       - image: cimg/node:<< parameters.node_version >>
     steps:
@@ -24,4 +28,5 @@ jobs:
 workflows:
   node_workflow:
     jobs:
-      - install_node
+      - install_node:
+          node_version: << pipeline.parameters.node_version >>
