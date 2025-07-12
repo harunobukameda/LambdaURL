@@ -1,95 +1,27 @@
 version: 2.1
 
-orbs:
-  aws-cli: circleci/aws-cli@4.0.0
+# パラメータの定義
+parameters:
+  node_version:
+    type: string
+    default: "18"
 
-commands:
-  custom-aws-setup:
-    description: Custom AWS CLI setup with extra logging
-    steps:
-      - run:
-          name: Export AWS credentials and log
-          command: |
-            echo "Using custom AWS setup"
-            export AWS_DEFAULT_REGION=us-east-1
-
+# ジョブの定義
 jobs:
-  deploy-lambda:
-    executor: aws-cli/default
+  install_node:
+    docker:
+      - image: cimg/node:<< parameters.node_version >>
     steps:
-      - checkout
-
-      - aws-cli/setup:
-          override-with: custom-aws-setup
-
       - run:
-          name: "Install Node.js 18 (binary)"
+          name: "Node.js確認"
           command: |
-            curl -fsSL https://nodejs.org/dist/v18.20.2/node-v18.20.2-linux-x64.tar.xz -o node.tar.xz
-            mkdir -p /tmp/node
-            tar -xf node.tar.xz -C /tmp/node --strip-components=1
-            echo 'export PATH="/tmp/node/bin:$PATH"' >> $BASH_ENV
-            source $BASH_ENV
-            node -v
-            npm -v
+            echo "Node.jsバージョン:"
+            node --version
+            echo "npmバージョン:"
+            npm --version
 
-      - run:
-          name: "Install dependencies"
-          command: |
-            source $BASH_ENV
-            npm install
-
-      - run:
-          name: "Run linting and tests"
-          command: |
-            source $BASH_ENV
-            npm run lint || echo "Linting issues found, but continuing deployment"
-            npm test
-
-      - run:
-          name: "Create deployment package"
-          command: |
-            mkdir -p deploy
-            cp index.mjs deploy/
-            cd deploy
-            zip -r lambda_function.zip .
-
-      - run:
-          name: "Deploy Lambda function with URL"
-          command: |
-            echo "Deploying Lambda function..."
-
-            aws lambda create-function \
-              --region ap-northeast-1 \
-              --function-name LambdaURL \
-              --runtime nodejs18.x \
-              --handler index.handler \
-              --zip-file fileb://deploy/lambda_function.zip \
-              --role $AWS_LAMBDA_ROLE_ARN || {
-                echo "Function may already exist, attempting to update..."
-                aws lambda update-function-code \
-                  --region ap-northeast-1 \
-                  --function-name LambdaURL \
-                  --zip-file fileb://deploy/lambda_function.zip
-              }
-
-            echo "Creating function URL config..."
-            aws lambda create-function-url-config \
-              --region ap-northeast-1 \
-              --function-name LambdaURL \
-              --auth-type NONE || true
-
-            echo "Retrieving Lambda URL..."
-            aws lambda get-function-url-config \
-              --region ap-northeast-1 \
-              --function-name LambdaURL || echo "Could not retrieve function URL."
-
+# ワークフローの定義
 workflows:
-  deploy-lambda-workflow:
+  node_workflow:
     jobs:
-      - deploy-lambda:
-          context:
-            - aws-credentials
-          filters:
-            branches:
-              only: main
+      - install_node
