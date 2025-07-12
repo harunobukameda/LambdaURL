@@ -4,7 +4,7 @@ version: 2.1
 parameters:
   node_version:
     type: string
-    default: "18"
+    default: "18.17"
 
 # ジョブの定義
 jobs:
@@ -12,7 +12,7 @@ jobs:
     parameters:
       node_version:
         type: string
-        default: "18"
+        default: "18.17"
     docker:
       - image: cimg/node:<< parameters.node_version >>
     steps:
