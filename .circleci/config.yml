@@ -3,16 +3,25 @@ version: 2.1
 orbs:
   aws-cli: circleci/aws-cli@4.0.0
 
+commands:
+  custom-aws-setup:
+    description: Custom AWS CLI setup with extra logging
+    steps:
+      - run:
+          name: Export AWS credentials and log
+          command: |
+            echo "Using custom AWS setup"
+            export AWS_DEFAULT_REGION=us-east-1
+
 jobs:
   deploy-lambda:
     executor: aws-cli/default
     steps:
       - checkout
 
-      # AWS 認証情報のセットアップ（context 経由）
-      - aws-cli/setup
+      - aws-cli/setup:
+          override-with: custom-aws-setup
 
-      # Node.js を非 root 環境にバイナリでインストール
       - run:
           name: "Install Node.js 18 (binary)"
           command: |
@@ -24,14 +33,12 @@ jobs:
             node -v
             npm -v
 
-      # npm install
       - run:
           name: "Install dependencies"
           command: |
             source $BASH_ENV
             npm install
 
-      # Lint & Test
       - run:
           name: "Run linting and tests"
           command: |
@@ -39,7 +46,6 @@ jobs:
             npm run lint || echo "Linting issues found, but continuing deployment"
             npm test
 
-      # Lambda zip パッケージ作成
       - run:
           name: "Create deployment package"
           command: |
@@ -48,7 +54,6 @@ jobs:
             cd deploy
             zip -r lambda_function.zip .
 
-      # Lambda 関数の作成または更新 & URL取得
       - run:
           name: "Deploy Lambda function with URL"
           command: |
